@@ -166,7 +166,7 @@ fn b64_decode_strings(content: &str, results: &mut ScanResult) {
             let decoded_string = String::from_utf8_lossy(&decoded_bytes);
             let is_printable = decoded_bytes
                 .iter()
-                .all(|&b| (b >= 32 && b <= 126) || b == 10 || b == 13);
+                .all(|&b| (32..=126).contains(&b) || b == 10 || b == 13);
 
             if decoded_string.chars().any(|c| c.is_alphanumeric())
                 && decoded_string.len() > 4
@@ -227,7 +227,7 @@ fn hunt_stateful_obfuscation(content: &str, results: &mut ScanResult) {
     // Chr(119)
     let chr_regex = Regex::new(r"(?i)chr\s*\(\s*(\d+)\s*\)").unwrap();
 
-    for chunk in content.split(|c| c == '\n' || c == '\r' || c == ':') {
+    for chunk in content.split(['\n', '\r', ':']) {
         let clean_chunk = chunk.trim();
         if clean_chunk.is_empty() {
             continue;
@@ -240,7 +240,7 @@ fn hunt_stateful_obfuscation(content: &str, results: &mut ScanResult) {
             let mut resolved_value = String::new();
 
             // Concat
-            let parts: Vec<&str> = expression.split(|c| c == '&' || c == '+').collect();
+            let parts: Vec<&str> = expression.split(['&', '+']).collect();
 
             for part in parts {
                 let part_trimmed = part.trim();
@@ -248,11 +248,10 @@ fn hunt_stateful_obfuscation(content: &str, results: &mut ScanResult) {
                 if part_trimmed.starts_with('"') && part_trimmed.ends_with('"') {
                     if let Some(str_cap) = string_literal_regex.captures(part_trimmed) {
                         resolved_value.push_str(&str_cap[1]);
-                    } else if let Some(chr_cap) = chr_regex.captures(part_trimmed) {
-                        if let Ok(ascii_num) = chr_cap[1].parse::<u8>() {
+                    } else if let Some(chr_cap) = chr_regex.captures(part_trimmed)
+                        && let Ok(ascii_num) = chr_cap[1].parse::<u8>() {
                             resolved_value.push(ascii_num as char);
                         }
-                    }
                 } else {
                     let var_key = part_trimmed.to_lowercase();
                     if let Some(known_value) = memory.get(&var_key) {
@@ -316,7 +315,7 @@ fn hunt_array_obfuscation(content: &str, results: &mut ScanResult) {
             for j in 0..min_len {
                 let val = arr1[j] + arr2[j];
 
-                if val >= 32 && val <= 126 {
+                if (32..=126).contains(&val) {
                     shifted_str.push(val as u8 as char);
                 }
             }
@@ -341,15 +340,14 @@ fn hunt_plaintext_threats(content: &str, results: &mut ScanResult) {
     for line in content.lines() {
         let clean_line = line.trim();
 
-        if is_threat(clean_line) {
-            if seen_threats.insert(clean_line.to_string()) {
+        if is_threat(clean_line)
+            && seen_threats.insert(clean_line.to_string()) {
                 println!("[!] Plaintext IOC Detected: {}", clean_line);
 
                 // results.plaintext_iocs.push(clean_line.to_string());
 
                 network_iocs(clean_line, results);
             }
-        }
     }
 }
 
