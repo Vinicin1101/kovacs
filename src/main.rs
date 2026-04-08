@@ -3,9 +3,9 @@ use goblin::Object;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::collections::HashSet;
 
 struct ScanResult {
     urls: Vec<String>,
@@ -283,23 +283,23 @@ fn hunt_stateful_obfuscation(content: &str, results: &mut ScanResult) {
 
 fn hunt_array_obfuscation(content: &str, results: &mut ScanResult) {
     let array_regex = Regex::new(r"(?i)Array\s*\(([^)]+)\)").unwrap();
-    
+
     let mut extracted_arrays: Vec<Vec<i32>> = Vec::new();
-    
+
     for cap in array_regex.captures_iter(content) {
         let inner_content = &cap[1];
         let mut numbers = Vec::new();
-        
+
         for part in inner_content.split(',') {
             let clean_part = part.trim().to_uppercase().replace("&H", ""); // Remove espaços e o &H
-            
+
             if let Ok(num) = i32::from_str_radix(&clean_part, 16) {
                 numbers.push(num);
             } else if let Ok(num) = clean_part.parse::<i32>() {
                 numbers.push(num);
             }
         }
-        
+
         if numbers.len() >= 5 {
             extracted_arrays.push(numbers);
         }
@@ -308,25 +308,25 @@ fn hunt_array_obfuscation(content: &str, results: &mut ScanResult) {
     for i in 0..extracted_arrays.len() {
         if i + 1 < extracted_arrays.len() {
             let arr1 = &extracted_arrays[i];
-            let arr2 = &extracted_arrays[i+1];
-            
+            let arr2 = &extracted_arrays[i + 1];
+
             let mut shifted_str = String::new();
             let min_len = arr1.len().min(arr2.len());
-            
+
             for j in 0..min_len {
-                let val = arr1[j] + arr2[j]; 
-                
+                let val = arr1[j] + arr2[j];
+
                 if val >= 32 && val <= 126 {
                     shifted_str.push(val as u8 as char);
                 }
             }
-            
+
             if is_threat(&shifted_str) {
                 println!("\n--- [ OBFUSCATION DETECTED (Array Math) ] ---");
                 println!("[!] Array Shift Decoded: {}", shifted_str);
-                
+
                 results.array_strings.push(shifted_str.clone());
-                
+
                 network_iocs(&shifted_str.to_lowercase(), results);
             }
         }
@@ -340,13 +340,13 @@ fn hunt_plaintext_threats(content: &str, results: &mut ScanResult) {
 
     for line in content.lines() {
         let clean_line = line.trim();
-        
+
         if is_threat(clean_line) {
             if seen_threats.insert(clean_line.to_string()) {
                 println!("[!] Plaintext IOC Detected: {}", clean_line);
-                
+
                 // results.plaintext_iocs.push(clean_line.to_string());
-                
+
                 network_iocs(clean_line, results);
             }
         }
