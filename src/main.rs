@@ -62,9 +62,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         evidence_content.push_str(&format!("Original: {}\n↳ Decoded: {}\n", orig, dec));
     }
 
-    evidence_content.push_str("\n--- [ OBFUSCATED STRINGS (StrReverse) ] ---\n");
+    evidence_content.push_str("\n--- [ OBFUSCATION DETECTED (StrReverse) ] ---\n");
     for (orig, dec) in &scan_results.reversed_strings {
         evidence_content.push_str(&format!("Original: {}\n↳ Reversed: {}\n", orig, dec));
+    }
+
+    evidence_content.push_str("\n--- [ OBFUSCATION DETECTED (Array Math) ] ---\n");
+    for str in &scan_results.array_strings {
+        evidence_content.push_str(&format!("Array Shift Decoded: {}\\n", str));
+    }
+
+    evidence_content.push_str("\n--- [ PLAINTEXT THREAT SCAN ] ---\n");
+    for str in &scan_results.plaintext_iocs {
+        evidence_content.push_str(&format!("Plaintext IOC Detected: {}\n", str));
     }
 
     // Save evidence
